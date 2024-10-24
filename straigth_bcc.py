@@ -6,17 +6,17 @@ import os
 # Parámetros
 A = 0.125  # Amplitud de la onda senoidal
 lamb = 1  # Longitud de onda
-d = 0.05  # Distancia entre capas a lo largo de los ejes Y y Z
-bd = 0.01  # Distancia entre puntos
+d = 0.5  # Distancia entre capas a lo largo de los ejes Y y Z
+bd = 0.5  # Distancia entre puntos
 gamma = 0  # Ángulo de rotación en grados por capa
-ln = 5 # Número de capas
+ln = 3 # Número de capas
 mass = 0.09091965489  # Valor de la masa
-xlo, xhi = -1, 5  # Límites del eje X
-ylo, yhi = 0, 2  # Límites del eje Y
-zlo, zhi = 0, ln * d  # Límite superior a lo largo del eje Z
+xlo, xhi = -1, 15  # Límites del eje X
+ylo, yhi = 0, 3.6  # Límites del eje Y
+zlo, zhi = -ln*d, 0  # Límite superior a lo largo del eje Z
 w = 2 * np.pi / lamb  # Frecuencia angular
 mass_formatted = f"{mass:.10e}"  # Valor de la masa formateado
-id_offset = 39
+id_offset = 7
 def create_equidistant_line(bd, xlo, xhi):
     x_points = np.arange(xlo, xhi + bd, bd)
     z_points = np.zeros_like(x_points)  # Línea recta a lo largo del eje X
@@ -78,8 +78,8 @@ current_id = 0  # Reiniciar ID para las capas en Z
 # Loop para aumentar las posiciones en X y Y en bd/2 y d/2
 while z_offset < zhi:
     # Calcular el desplazamiento para la capa actual
-    x_offset = (current_id % 2)* bd / 2
-    y_offset = (current_id % 2) * d / 2  # Desplazamiento alternado para Y
+    x_offset = 0#(current_id % 2)* bd / 2
+    y_offset = 0#(current_id % 2) * d / 2  # Desplazamiento alternado para Y
     
     rotated_layer = rotate_and_reposition(positions_y, gamma * (z_offset // d), xhi, yhi)
     rotated_layer[:, 2] += z_offset
@@ -101,7 +101,7 @@ final_ids = final_ids - id_offset
 filter = (
     (final_positions[:, 0] >= 0) & (final_positions[:, 0] <= xhi) & 
     (final_positions[:, 1] >= ylo) & (final_positions[:, 1] <= yhi) & 
-    (final_positions[:, 2] >= zlo) & (final_positions[:, 2] <= zhi + 1)
+    (final_positions[:, 2] >= zlo-2) & (final_positions[:, 2] <= zhi + 1)
 )
 
 final_positions = final_positions[filter]
@@ -159,7 +159,7 @@ for i in range(len(Bonds) - 1):
 Angles = np.array(angles)
 
 # Guardar los datos
-path = 'G:/Simaf/Mantis/Indent Gera'
+path = 'D:/Simaf/Mantis/Indent Gera'
 filename = os.path.join(path, f'Sin_bouligand_{gamma}_{ln}.dat')
 os.makedirs(path, exist_ok=True)
 

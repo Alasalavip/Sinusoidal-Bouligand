@@ -1,0 +1,117 @@
+units cgs
+atom_style molecular
+special_bonds   lj 0.0 0.0 0.0 coul 0.0 0.0 0.0
+timestep 1.0e-7
+boundary p p p
+processors * * 1
+# Leer archivo de datos
+
+read_data 01_No_bouligand.dat
+read_data 01_No_bouligand.dat add append offset 10 0 0 0 0 shift 0.0 0.0 -0.1
+#read_data 01_No_bouligand.dat add append offset 20 0 0 0 0 shift 0.0 0.0 -0.2
+
+mass		* 9.0919654890e-01
+neighbor        0.3 bin
+neigh_modify    every 1 delay 2 check yes
+
+# Potencial interatómico 
+bond_style harmonic/shift/cut
+bond_coeff 1  4.0e+3  0.01 0.01001
+
+pair_style lj/cubic # has rcut=1.737 sigma, rmin=2**(1/6) sigma
+pair_coeff * * 2.0 0.08909
+# coeff between particles of the same fiber/molecule
+variable a loop 20
+label loop
+pair_coeff $a $a 0 0.001
+next a
+jump SELF loop
+
+#Still need to add interactions between different molecules 
+
+
+#COMPUTE
+fix            intNVE all nve ## this fix was defined above.
+compute         1 all pe/atom
+compute         2 all ke/atom
+compute         3 all stress/atom NULL virial
+compute         4 all msd
+compute         5 all temp/com
+compute		6 all reduce sum c_3[1] 
+compute		7 all reduce sum c_3[2] 
+compute		8 all reduce sum c_3[3] 
+compute		9 all reduce sum c_3[4] 
+compute		10 all reduce sum c_3[5] 
+compute		11 all reduce sum c_3[6] 
+compute         nbond all nbond/atom
+
+
+#config salida de dumps
+dump		mydumpEquil all atom 50 dump.equil.* 
+run 0
+
+
+region dwall block 4.999 INF INF INF INF INF units box
+region uwall block INF 0.001 INF INF INF INF units box
+region wall union 2 dwall uwall
+
+group fixed region wall
+
+group interior subtract all fixed
+
+## Minimizw
+##min_style     fire
+minimize      1.0e-10 1.0e-11 5000 10000
+
+####
+#velocity create #recien en este momento asignamos velocidades
+velocity     all create 10 4928459 rot yes mom yes dist gaussian
+fix            tr all temp/rescale 1 10. 10. 0.9 1.0#mas abajo
+unfix intNVE
+
+##run         100
+
+reset_timestep 0
+undump mydumpEquil
+
+#config salida de dumps
+dump            mydump all custom 10000 dump.soft.* id type x y z vx vy vz fx fy fz c_1 c_2 c_3[1] c_3[2] c_3[3] c_nbond mol #observar que resete mi dump
+
+
+fix wal	fixed setforce 0.0 0.0 0.0
+velocity	fixed zero linear
+velocity	fixed zero angular
+velocity	fixed set 0.0 0.0 0.0
+
+
+# Definir las coordenadas p indentar
+#timestep 1.0e-5
+timestep 0.1e-6
+variable rate equal 1.0
+variable Rindenter equal 0.25
+variable top equal "0.2501  - step*dt*v_rate"
+variable depth equal "step*dt*v_rate"
+# Configurar la salida de thermo
+thermo		100
+thermo_style    custom step temp ke pe etotal c_5 c_6 c_7 c_8 c_9 c_10 c_11  press time v_top
+thermo_modify	norm yes
+
+
+
+fix intNVE interior nve
+
+
+
+
+# Configurar el indentador
+## Cylinder diameter 0.2 cm
+fix indenter all indent 2.3e+11 cylinder y 2.5 v_top  v_Rindenter  units box
+#fix supportL all indent 1.0e+9 cylinder y 0.5 -2  v_Rindenter  units box
+#fix supportR all indent 1.0e+9 cylinder y 4.5 -2  v_Rindenter  units box
+
+fix            load all ave/time 1 100 200 f_indenter v_depth f_indenter[1] f_indenter[2] f_indenter[3]  file temp.indent off 1
+
+# Ejecutar la simulación de indentación
+run 10000000
+
+

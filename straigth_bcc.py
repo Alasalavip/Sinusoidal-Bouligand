@@ -6,14 +6,15 @@ import os
 # Parámetros
 A = 0.125  # Amplitud de la onda senoidal
 lamb = 1  # Longitud de onda
-d = 0.5  # Distancia entre capas a lo largo de los ejes Y y Z
+d = 0.5# Distancia entre capas a lo largo del eje Y 
+b = 1.414215*(d/2)
 bd = 0.5  # Distancia entre puntos
 gamma = 0  # Ángulo de rotación en grados por capa
-ln = 8 # Número de capas
+ln = 3 # Número de capas
 mass = 0.09091965489  # Valor de la masa
 xlo, xhi = -1, 15 # Límites del eje X
 ylo, yhi = 0, 3.8  # Límites del eje Y
-zlo, zhi = (-ln*d)+d, 0.1  # Límite superior a lo largo del eje Z
+zlo, zhi = (-ln*b)+b, 0.1  # Límite superior a lo largo del eje Z
 w = 2 * np.pi / lamb  # Frecuencia angular
 mass_formatted = f"{mass:.10e}"  # Valor de la masa formateado
 id_offset = 7
@@ -78,10 +79,10 @@ current_id = 0  # Reiniciar ID para las capas en Z
 # Loop para aumentar las posiciones en X y Y en bd/2 y d/2
 while z_offset < zhi:
     # Calcular el desplazamiento para la capa actual
-    x_offset = 0#(current_id % 2)* bd / 2
-    y_offset = 0#(current_id % 2) * d / 2  # Desplazamiento alternado para Y
+    x_offset = (current_id % 2)* bd / 2
+    y_offset = (current_id % 2) * d / 2  # Desplazamiento alternado para Y
     
-    rotated_layer = rotate_and_reposition(positions_y, gamma * (z_offset // d), xhi, yhi)
+    rotated_layer = rotate_and_reposition(positions_y, gamma * (z_offset // b), xhi, yhi)
     rotated_layer[:, 2] += z_offset
     rotated_layer[:, 0] += x_offset  # Aumentar X
     rotated_layer[:, 1] += y_offset  # Aumentar Y
@@ -89,7 +90,7 @@ while z_offset < zhi:
     final_positions.append(rotated_layer)
     final_ids.extend(ids + (current_id - 1))  # Asignar IDs consecutivos
     current_id += id_offset  # Incrementar el ID para la próxima capa
-    z_offset += d
+    z_offset += b
 
 final_positions = np.vstack(final_positions)
 final_ids = np.array(final_ids)
@@ -183,9 +184,9 @@ types = np.array([[len(np.unique(final_ids)), 'atom types'],
                   [1, 'bond types'],
                   [1, 'angle types']
                   ])
-limits = np.array([[xlo , xhi + 1, 'xlo', 'xhi'],
-                   [ylo - 1, yhi + 1, 'ylo', 'yhi'],
-                   [zlo - 1, zhi + 1, 'zlo', 'zhi']], dtype=object)
+limits = np.array([[xlo-1 , xhi + 2, 'xlo', 'xhi'],
+                   [ylo - 2, yhi + 2, 'ylo', 'yhi'],
+                   [zlo - 3, zhi + 2, 'zlo', 'zhi']], dtype=object)
 
 def format_sci(val):
     if isinstance(val, (int, float)):
@@ -205,10 +206,10 @@ with open(filename, 'w') as f:
     for nlo, nhi, lo, hi in limits_transformed:
         f.write(f"   {nlo:10s} {nhi:10s} {lo:3} {hi:3}\n")
     f.write("\n")
-    f.write("Masses\n\n")
-    for number, label in zip(masses, mass_array):
-        f.write(f"        {int(number):1d}           {label:10s}\n")
-    f.write("\n")
+   # f.write("Masses\n\n")
+    #for number, label in zip(masses, mass_array):
+     #   f.write(f"        {int(number):1d}           {label:10s}\n")
+    #f.write("\n")
     f.write("Atoms\n\n")
     np.savetxt(f, atoms, fmt=formats_atoms)
     f.write("\n")

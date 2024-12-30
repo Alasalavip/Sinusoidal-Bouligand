@@ -1,0 +1,130 @@
+units           cgs
+dimension       3
+boundary        f f f
+atom_style      bpm/sphere
+special_bonds   lj 0.0 1.0 1.0 coul 0.0 1.0 1.0
+newton          on off
+comm_modify     vel yes cutoff 0.1
+variable l equal 1.0
+lattice         bcc $l #origin 0.25 0.0 0.0
+region          box block -10 10 -10 10 -15 10 units box
+
+create_box      3 box bond/types 3 extra/bond/per/atom 20 extra/special/per/atom 50
+
+region          disk block -9.0 9.0 -1.6 1.6 -3.6 0.2 units box
+region          myWall  block -9.3 9.3 -10 10 -9.25 10 units box
+region base1 cylinder y 7.5 -3.5 0.25 INF INF units box
+region base2 cylinder y -7.5 -3.5 0.25 INF INF units box
+#region          myWall  block -20 20 -20 20 -9.25 10 units box
+create_atoms    1 region disk
+write_data init1.dat
+lattice         bcc $l origin 0.5 0.0 0.0
+create_atoms    1 region disk
+write_data init2.dat
+lattice         bcc $l origin 0.0 0.5 0.0
+create_atoms    2 region disk
+write_data init3.dat
+lattice         bcc $l origin 0.5 0.5 0.0
+create_atoms    2 region disk
+write_data init4.dat
+group          fib1 type 1
+group          fib2 type 2
+set group fib1 diameter 0.5
+set group fib2 diameter 0.5
+
+set group all mass 0.25
+lattice         bcc 1 origin 0.25 0.25 0.02
+
+region          ball sphere 0.25 0.25 1.02 0.5 units box
+#create_atoms    3 region ball
+#group           projectile region ball
+#set group projectile diameter 1.5
+#set group projectile mass 7200 # =7200/N_ind
+
+
+variable        zatom atom "z > -0.01"
+group           hz variable zatom
+
+
+neighbor        1.0 bin
+pair_style      gran/hooke/history 2.19e12 3.5e12 1E+3 1E+3 1 1
+pair_coeff      * *
+
+region uwall block INF INF INF INF -0.1 INF units box
+region dwall block INF INF INF INF INF -4.9 units box
+region base union 2 base1 base2 #dwall uwall
+group dw region dwall
+group uw region uwall
+group fixed region base
+
+group interior subtract all fixed
+fix fwall	fixed setforce 0.0 0.0 0.0
+velocity	fixed zero linear
+velocity	fixed set 0.0 0.0 0.0
+
+fix             1 interior nve/bpm/sphere
+
+create_bonds    many fib1 fib1 1 0.4 0.5001
+create_bonds    many fib2 fib2 1 0.4 0.5001
+create_bonds    many fib1 fib2 2 0.4 0.5001
+write_data init5.dat
+
+#displace_atoms all random 0.001 0.001 0.001 134598738
+#create_bonds    many projectile projectile 3 0.0 1.1
+
+neighbor        0.3 bin
+special_bonds   lj 0.0 1.0 1.0 coul 1.0 1.0 1.0
+
+bond_style      bpm/rotational store/local brkbond 100 time id1 id2 smooth no
+
+bond_coeff      1 1.05E+10 5.0E9 1.05E08 1.36E08 9.75e6 1e7 2e15 2e15 5e-2 5e-2 5 5
+bond_coeff      2 1.1E+10 5.0E9 1.05E08 1.36E08 5.25e6 1e7 2e15 2e15 5e-2 5e-2 5 5
+bond_coeff      3 1E+12 4.0E+7 1.05E06 1.36E06 1e10 9e7 2e15 2e15 5e-2 5e-2 5 5
+
+# bond_coeff      1 1.05E+10 4.0E+9 1.0E11 1.05E10 1.06e8 1e7 1e7 0.420e7 5e-2 5e-2 5 5
+# bond_coeff      2 1.1E+10 5.0E+10 0.5E8 1.05E10 1.06e8 1e7 1e7 1.5e7 5e-2 5e-2 5 5
+# bond_coeff      3 1E+12 4.0E+7 1.05E06 1.36E06 1e10 9e7 2e15 2e15 5e-2 5e-2 5 5
+
+
+
+#velocity        projectile set  0.0 0.0 -400.0
+compute         nbond all nbond/atom
+compute         tbond all reduce sum c_nbond
+compute 1 all property/local batom1 batom2 btype
+
+compute z1 hz property/atom z
+compute z2 hz reduce min c_z1
+
+
+timestep        1.0e-7
+thermo_style    custom step ke pe pxx pyy pzz c_tbond
+thermo          1000
+thermo_modify   lost ignore lost/bond ignore
+shell mkdir dump bond
+dump            1 all custom 1000 dump/dump.lammps.* id type radius x y z vx vy vz fx fy fz c_nbond mass
+
+dump            2 all local 1000 brokenDump f_brkbond[1] f_brkbond[2] f_brkbond[3]
+#dump_modify     2 header no
+dump            3 all local 1000 bond/bond.lammps.* index c_1[3] c_1[1] c_1[2]
+
+variable rate equal 1.0e-1
+variable Rindenter equal 0.5
+variable top equal "0.50001  - step*dt*v_rate"
+variable depth equal "step*dt*v_rate"
+variable Eind equal 3.0E12
+fix indenter all indent ${Eind} cylinder y 0.0 v_top v_Rindenter  units box
+#fix indenter1 all indent ${Eind} cylinder y 7.501 -4.5001 1.0  units box
+#fix indenter2 all indent ${Eind} cylinder y -7.501 -4.5001 1.0  units box
+
+
+#fix             b1 all wall/gran/region hooke/history 1.0e11 3.5e10 1E+5 1E+5 1 1 region base1
+#fix             b2 all wall/gran/region hooke/history 1.0e11 3.5e10 1E+5 1E+5 1 1 region base2
+
+fix            load all ave/time 1 1000 1000 f_indenter v_depth f_indenter[1] f_indenter[2] f_indenter[3] c_z2 file ind.log off 1
+
+#fix 			2 uw move linear 0.0 0.0 1e-2
+#fix 			3 dw move linear 0.0 0.0 -1e-2
+fix             caja1 all wall/gran/region hooke/history 1.0e11 3.5e10 1E+5 1E+5 1 1 region myWall
+run             2000000
+
+write_data fin.dat
